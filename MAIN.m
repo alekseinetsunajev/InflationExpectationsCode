@@ -116,7 +116,7 @@ Estimation.B_stdErr = results(Estimation, spec, T, reply);
 %% Produce impulse responces, last input argument is number of replication
 fprintf(1,'Bootstrapping...');
 [~, ~, ~,~, bootstrap_Y_MA] = birs_LOpt(spec, Estimation.Theta, Estimation.B, Estimation.B_stdErr, Estimation.KsiT, Estimation.Lambda, T, y, Z, 36, 1000);
-q = 0.975;
+q = 0.985;
 CounterfactualDataQuantile.high = quantile(bootstrap_Y_MA,q,3);
 CounterfactualDataQuantile.low = quantile(bootstrap_Y_MA,1-q,3);
 
