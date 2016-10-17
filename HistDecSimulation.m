@@ -8,7 +8,6 @@ for ii = 1:T(1, 1) - spec.lags
     Epsilon(ii, :) = (Estimation.B^-1 * U(ii, :)');
 end
 
-
 % convert to VAR(1)
 A = zeros(T(1, 2)* (spec.lags) ); % Define the A matrix
 for i = 1:spec.lags
@@ -24,10 +23,7 @@ counterfactualEpsilon = zeros(T(1,1) - spec.lags, T(1,2));
 counterfactualEpsilon(:, 1) = Epsilon(:, 1);
 
 counterfactualEpsilon(:, 2) = Epsilon(:, 2);
-counterfactualEpsilon(215:end, 2) = zeros(88, 1);
-
-% Epsilon_US(:, 4) = Epsilon(:, 4);
-% Epsilon_US(:, 5) = Epsilon(:, 5);
+counterfactualEpsilon(215:end, 1) = zeros(88, 1);
 
 % MA representation   
 for ii = 1:T(1,1) - spec.lags
@@ -37,8 +33,8 @@ for ii = 1:T(1,1) - spec.lags
     for jj = 1 : ii        
         y_bar = y_bar + J*A^(jj-1)*J' * Estimation.B * counterfactualEpsilon(ii - jj +1, :)';
     end
-
     y_bar_ma(ii, :) =  y_bar' ;
+   y_bar_ma(ii, 2) = roundn( y_bar_ma(ii, 2), -1);    
 end
 
 % accumulate data
@@ -51,7 +47,7 @@ end
 Y_bar_ma = [y_A(spec.lags+1, :) ; y_bar_ma];
 for  ii = 2:T(1, 1) +1- spec.lags
     Y_bar_ma(ii, :)  = Y_bar_ma(ii-1, :) + Y_bar_ma(ii, :);
-    Y_bar_ma(ii, :)  = roundn( Y_bar_ma(ii, :), -1);
+    %Y_bar_ma(ii, :)  = roundn( Y_bar_ma(ii, :), -1);
 end
 y_A = y_A(2:end, :);
 Y_bar_ma = Y_bar_ma(2:end, :);
