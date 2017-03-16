@@ -1,8 +1,5 @@
 % To obtain the Impulse Responses
-
-function [A, Theta_SR, J, Theta_longrun]=irs(spec, Theta, B,  T, h)
-% rescale B such that it has ones on the main diagonal
-%B = B * diag(ones(T(1,2), 1) ./ diag(B));
+function [responsesShortRun, responsesLongRun] = CalculateImpulseResponses(spec, Theta, B,  T, h)
 
 A = zeros(T(1, 2)* (spec.lags) ); % Define the A matrix
 
@@ -16,14 +13,14 @@ end
 
 J = [eye(T(1,2)) zeros(T(1,2), T(1,2)*spec.lags - T(1,2) )  ]; % Define the J matrix
 
-Theta_SR = reshape(J*A^0*J'*B, T(1,2)^2, 1); % Impulse response matrix
+responsesShortRun = reshape(J*A^0*J'*B, T(1,2)^2, 1); % Impulse response matrix
 
 for i=1:h
-	Theta_SR=([Theta_SR reshape(J*A^i*J'*B, T(1,2)^2, 1)]);
+	responsesShortRun=([responsesShortRun reshape(J*A^i*J'*B, T(1,2)^2, 1)]);
 end;
 
-Theta_longrun = Theta_SR(:,1);
+responsesLongRun = responsesShortRun(:,1);
 
 for i = 1 : h
-    Theta_longrun(:,i+1) =  Theta_longrun(:, i) + Theta_SR(:, i+1);
+    responsesLongRun(:,i+1) =  responsesLongRun(:, i) + responsesShortRun(:, i+1);
 end

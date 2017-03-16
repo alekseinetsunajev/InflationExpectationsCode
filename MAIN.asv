@@ -1,10 +1,12 @@
 %% This is the main program of the code to replicate results of the paper "The Anchoring of Ination Expectations in the Short and in the Long Run "
+
 % Authors: 
 % Dieter Nautz
 % Aleksei Netsunajev
 % Till Strohsal
 
 % Code written by Aleksei Netsunajev, aleksei.netsunajev@fu-berlin.de
+
 clear
 fprintf(1,'\n');
 fprintf(1,'This is the code to replicate result of the paper "The Anchoring of Inflation Expectations in the Short and in the Long Run "\n');
@@ -47,14 +49,33 @@ fprintf(1,'lags\n');
 %FEVD           forecast error variance decompositions
 
 %% Calculate the matrix Z of a constant and lagged observations
-tolValue = 0.0000000001;                              % tolerance value for EM convergence
-[Z, A1, A2] = CalculateMatrixOfLaggedValues (y, spec.lags, 0);
+Tolvalue = 0.0000000001;                              % tolerance value for EM convergence
+A1 = 0;                                             % auxiliary variables, counters
+A2 = 0;
+for i = 1:T(1,1)-spec.lags;
+    Z(i,1) = 1;                                         % constant
+    if spec.trend == 1
+        % with trend
+        Z(i,2) = i;
+        for j=1:spec.lags
+            Z(i,(j-1)*T(1,2)+2+1: j*T(1,2)+1+1 )= y(spec.lags+i-j,:);  % lagged observations 
+        end
+    else
+        % without trend
+        for j=1:spec.lags
+            Z(i,(j-1)*T(1,2)+2: j*T(1,2)+1 )= y(spec.lags+i-j,:);  % lagged observations 
+        end            
+    end
+    A1 = A1 + kron( Z(i,:)' * Z(i,:), eye(T(1,2)));
+    A2 = A2 + kron(Z(i,:)', eye(T(1,2)))*y(i+spec.lags,:)';     
+end
 
 %% Estimate models, estimate() is the estimation function, results are
 % stored in the Estimation structure
-% Form matrix of random numbers
+
+%Form matrix of random numbers
 for iteration = 1:spec.iterations
-    randNumbers(:,1+ T(1,2)*(iteration -1) :T(1,2)*iteration) = 1/100000*randn(T(1,2),T(1,2));
+    RandNumbers(:,1+ T(1,2)*(iteration -1) :T(1,2)*iteration) = 1/100000*randn(T(1,2),T(1,2));
 end
 
 %% Unrestricted model
@@ -64,7 +85,7 @@ fprintf(1,'Estimating model with state invariant B... \n');
      EstimationUR.P(:, 1 + spec.s*(iteration - 1) : spec.s*iteration ),  EstimationUR.IterationLik(iteration, 1:2), EstimationUR.B(:,1 + T(1,2)*(iteration - 1) : T(1,2)*iteration), ...
      EstimationUR.Lambda(:, 1 + T(1,2)*(iteration - 1) : T(1,2)*iteration), EstimationUR.Eta( : , 1+ spec.s*(iteration -1) : spec.s*iteration ), ...
      EstimationUR.Ksi( : , 1+ spec.s*(iteration -1) : spec.s*iteration )] = ...
-            estimate(A1, A2, T, y, Z, spec, tolValue, randNumbers(:,1+ T(1,2)*(iteration -1) :T(1,2)*iteration), LM(iteration) );
+            estimate(A1, A2, T, y, Z, spec, Tolvalue, RandNumbers(:,1+ T(1,2)*(iteration -1) :T(1,2)*iteration), LM(iteration) );
 fprintf(1,'Calculating standard errors... \n');
 EstimationUR.logL = EstimationUR.IterationLik(1,1);
 [EstimationUR.StErr, EstimationUR.StErr_all, EstimationUR.Wald] = Param_Stderr(T, EstimationUR, spec, y, Z);
@@ -81,7 +102,7 @@ fprintf(1,'Estimating restricted model... \n');
      Estimation.P(:, 1 + spec.s*(iteration - 1) : spec.s*iteration ),  Estimation.IterationLik(iteration, 1:2), Estimation.B(:,1 + T(1,2)*(iteration - 1) : T(1,2)*iteration), ...
      Estimation.Lambda(:, 1 + T(1,2)*(iteration - 1) : T(1,2)*iteration), Estimation.Eta( : , 1+ spec.s*(iteration -1) : spec.s*iteration ), ...
      Estimation.Ksi( : , 1+ spec.s*(iteration -1) : spec.s*iteration )] = ...
-            estimate(A1, A2, T, y, Z, spec, tolValue, randNumbers(:,1+ T(1,2)*(iteration -1) :T(1,2)*iteration), LM(iteration) );
+            estimate(A1, A2, T, y, Z, spec, Tolvalue, RandNumbers(:,1+ T(1,2)*(iteration -1) :T(1,2)*iteration), LM(iteration) );
 
 fprintf(1,'Calculating standard errors... \n');
 Estimation.logL = Estimation.IterationLik(1,1);
@@ -94,11 +115,13 @@ Estimation.B_stdErr = results(Estimation, spec, T, reply);
 
 %% Produce impulse responces, last input argument is number of replication
 fprintf(1,'Bootstrapping...');
-[~, ~, ~,~, bootstrap_Y_MA] = Bootstrap(spec, Estimation.Theta, Estimation.B, Estimation.B_stdErr, Estimation.KsiT, Estimation.Lambda, T, y, Z, 36, 10);
+[~, ~, ~,~, bootstrap_Y_MA] = birs_LOpt(spec, Estimation.Theta, Estimation.B, Estimation.B_stdErr, Estimation.KsiT, Estimation.Lambda, T, y, Z, 36, 100);
+q = 0.985;
+CounterfactualDataQuantile.high = quantile(bootstrap_Y_MA,q,3);
+CounterfactualDataQuantile.low = quantile(bootstrap_Y_MA,1-q,3);
 
 % plot data
-PlotData();
+%plot_data();
 
 % historical decomposition
-HistoricalDecomposition(Estimation, T, y, Z, spec);
-CalculateAutocorrelation(T, y, Z, spec, Estimation, 24);
+Hist_dec_rnd(Estimation, T, y, Z, spec, CounterfactualDataQuantile);

@@ -1,10 +1,9 @@
 % This function estimates the Impulse Responses and computes various
 % bootstrap Confidence Intervals. Procedure follows Lütkepohl (2005) D.3,
 % p.709.
-function [Theta_SR, Theta_LR, Bootstrap, Bootstrap_LR,  bootstrap_Y_MA] = birs_LOpt(spec, Theta, B, B_stdErr, KsiT, Lambda, T, y, Z, h, brep)
+function [Theta_SR, Theta_LR, Bootstrap, Bootstrap_LR,  bootstrap_Y_MA] = Bootstrap(spec, Theta, B, B_stdErr, KsiT, Lambda, T, y, Z, h, brep)
 
 % To compute IRs with actual data:
-
 if B(1,1) < 0
     B(:,1) = -1 * B(:,1);
 end
@@ -12,9 +11,9 @@ if B(2,2) < 0
     B(:,2) = -1 * B(:,2);
 end
 
-[A, Theta_SR, J, Theta_LR] = irs(spec, Theta, B,  T, h);
+[Theta_SR, Theta_LR] = CalculateImpulseResponses(spec, Theta, B,  T, h);
 
-U = residuals2(T, y, Z, spec, Theta);
+U = GetResiduals(T, y, Z, spec.lags, Theta);
 C = Theta(1:T(1,2))' ;
 
 %% The bootstrap loop
@@ -80,7 +79,7 @@ for n=1:brep
     
     Tm = sum(KsiT ) - KsiT(1,:);
    Ahat1_vec  = Theta;
-   U_opt =  residuals2(T, y_star, Z_star, spec, Ahat1_vec);
+   U_opt =  GetResiduals(T, y_star, Z_star, spec.lags, Ahat1_vec);
 
     for position = 1:spec.s
         Sigma(1 + T(1,2)*(position-1) : T(1,2) * position, : )= B * ...
@@ -103,12 +102,6 @@ for n=1:brep
              Lambda(1 + T(1,2)*(position-1) : T(1,2) * position, :) = diag( BL(:, T(1,2)+position-1 ) );
          end
 
-%        Check signs of B
-%         for i=1:T(1,2)       
-%             if B(i,i) < 0
-%                 B(:,i) = -1 * B(:,i);
-%             end
-%         end
         if B(1,1) < 0
                 B(:,1) = -1 * B(:,1);
         end
@@ -120,7 +113,6 @@ for n=1:brep
           Sigma (1 + T(1,2)*(position-1) : T(1,2) * position, :) = B * ...
                 Lambda(1 + T(1,2)*(position-1) : T(1,2) * position, :) * B';      
        end
-        
         % Estimate parameter vector Theta (Ahat1_vec)
         T2=0;                                   %auxiliary counter matrices
         T3=0;                                   %auxiliary counter matrices
@@ -128,24 +120,18 @@ for n=1:brep
             T2 = T2 + kron( ( Z_star' * diag(KsiT(2:T(1,1)-spec.lags+1,position)) * Z_star ), get_sigma(Sigma, T, position)^-1) ;
             T3 = T3 + kron( Z_star' * diag(KsiT(2:T(1,1)-spec.lags+1,position)), get_sigma(Sigma, T, position)^-1);
         end
-        
         Ahat1_vec = T2^-1 * T3 * reshape(Y', (T(1,1)-spec.lags) * T(1,2),1) ;
-        U_opt = residuals2(T, y_star, Z_star, spec, Ahat1_vec);
-        
+        U_opt = GetResiduals(T, y_star, Z_star, spec.lags, Ahat1_vec);        
         RND = RND + 1;
     end
         
     B_full(:, n) = reshape(B, T(1,2)^2, 1);
     L_full(:, n+1) = reshape(Lambda,  T(1,2)^2*spec.s, 1 );    
       
-    [~, Theta1, ~, Theta1_LR] = irs(spec, Ahat1_vec, B,  T, h);
-
+    [Theta1, Theta1_LR] = CalculateImpulseResponses(spec, Ahat1_vec, B,  T, h);
     % Store the bootstrapped IR values in matrix
     Bootstrap(:,:, n) =Theta1 ;
     Bootstrap_LR(:,:, n) =  Theta1_LR;
-    
-%     Bootstrap(n,:) = reshape(Theta1, 1, T(1,2)^2*(h+1) );
-%     Bootstrap_LR(n, :) = reshape(Theta1_LR, 1, T(1,2)^2*(h+1) ) ;
     
     % calculate FEVD(Theta, B, Lambda...)
     FEVD1(:,:, n) = FEVD(Ahat1_vec, B,  Lambda, spec, T, 100, 1);
@@ -153,16 +139,13 @@ for n=1:brep
     
     estimationBootstrap.Theta = Ahat1_vec;
     estimationBootstrap.B = B;
-    bootstrap_Y_MA(:,:, n) = HistDecSimulation(estimationBootstrap, T, y, Z, spec);
-    
+    bootstrap_Y_MA(:,:, n) = HistDecSimulation(estimationBootstrap, T, y, Z, spec);    
 end
 
 %% Compute Confidence Intervals
 q = 0.975;
 CIH2 = quantile(Bootstrap_LR,q,3);
 CIL2 = quantile(Bootstrap_LR,1-q,3);
-% CIH2 = reshape(quantile(Bootstrap_LR,q),T(1,2)^2,h+1);
-% CIL2 = reshape(quantile(Bootstrap_LR,1-q),T(1,2)^2,h+1);
 
 % rescale the impulse responses s.t. the shocks have a unit impact
 Theta = Theta_LR;
@@ -176,20 +159,15 @@ pos = [1 2 3 4];        % position
 for i = 1:T(1,2):T(1,2)^2
     CIL2(i: i + T(1,2) - 1, :) = CIL2(i : i + T(1,2) - 1, :) ./ Theta_SR(pos(i + cnt),1);
     CIH2(i : i + T(1,2) - 1, :) = CIH2(i : i + T(1,2) - 1, :) ./ Theta_SR(pos(i + cnt) ,1);
-    %Theta_SR(i:i + T(1,2) - 1, :) = Theta_SR(i:i + T(1,2) - 1, :) ./ Theta_SR(pos(i + cnt),1);
     Theta(i:i + T(1,2) - 1, :) = Theta(i:i + T(1,2) - 1, :) ./ Theta_SR(pos(i + cnt),1);
     cnt = cnt + 1;
 end
 
-
 %% Plot of Impulse Responses with Confidence Intervals
 % PICTURE FOR INFLATION EXPECTATIONS
-
 figure('Name','Impulse Responses','NumberTitle','off')
 periods=0:h;
-
 Vec = reshape(reshape((1:T(1,2)^2), T(1,2), T(1,2))', T(1,2)^2, 1)';
-
 for p = 1 : T(1,2)^2
                 subplot(T(1,2), T(1,2), p);
                 plot(periods, Theta(Vec(p),:),'k',  'LineWidth', 1.5);

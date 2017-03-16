@@ -2,7 +2,7 @@ function[Y_bar_ma] = HistDecSimulation(Estimation, T, y, Z, spec)
 % obtain historical decomposition
 
 % calculate struct. shocks
-U = residuals2(T, y, Z, spec, Estimation.Theta);
+U = GetResiduals(T, y, Z, spec.lags, Estimation.Theta);
 
 for ii = 1:T(1, 1) - spec.lags
     Epsilon(ii, :) = (Estimation.B^-1 * U(ii, :)');

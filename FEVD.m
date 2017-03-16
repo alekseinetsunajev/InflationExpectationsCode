@@ -1,6 +1,6 @@
 function [VarDec] = FEVD(Theta, B, Lambda, spec, T, h, State)
 
-[A, Theta_SR_N, J, Theta_longrun]=irs(spec, Theta, B,  T, h);
+[Theta_SR_N, ~] = CalculateImpulseResponses(spec, Theta, B,  T, h);
 
 Vec = ones(T(1,2)^2, 1 );
 for i = 2: T(1,2)^2
@@ -30,9 +30,7 @@ for j = 1:h
 end
 
 % computation of each component
-
 Theta_Sq(:, 1) = ( (L_dup .* Theta_SR_N(:, 1) ) .^ 2 ) ;
-
 for j = 2:h
     for i = 1: T(1,2)^2   % var
             Theta_Sq(i, j) =  Theta_Sq(i, j-1) + ( (L_dup(i) * Theta_SR_N(i, j) )  .^2)   ;
@@ -44,7 +42,6 @@ end
 for  j = 1:h
     cnt = 1;
     for i = 0 : T(1, 2) : ( T(1, 2)^2 - 1 );
-        
         for k = 1:T(1,2)
             VarDec(i+k, j) = Theta_Sq( Vec(i+k), j) / MSE(cnt, j);
         end

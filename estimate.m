@@ -8,7 +8,7 @@ function [ThetaLast, Sigma, KsiT, P, IterationLik, B, Lambda, Eta, Ksi] = estima
     
     % Get initial estimates of parameter vector and calculate initial residual matrix u
     Theta =  (A1)^-1 * A2 ;
-    u = residuals2(T, y, Z, spec, Theta);           %function retrieves residuals
+    u = GetResiduals(T, y, Z, spec.lags, Theta);           %function retrieves residuals
 
     %SET THE INITIAL PARAMETERS
     B =  (1/T(1,1)*(u'*u))^0.5 + RandNumbers;
@@ -103,7 +103,7 @@ function [ThetaLast, Sigma, KsiT, P, IterationLik, B, Lambda, Eta, Ksi] = estima
         val(1,2)=1;
         RND = 1;
         while val(RND,2) > 0.000000001
-            u = residuals2(T, y, Z, spec, Theta(:, RND_ALL));
+            u = GetResiduals(T, y, Z, spec.lags, Theta(:, RND_ALL));
             [BL, val(RND+1,1), ~] = MinimizeN(KsiT, T, Tm, Lambda, B, spec, u, Theta, RND_ALL);
             
             val(RND+1,2) = abs( ( val(RND+1,1) - val(RND,1) ) / val(RND,1) );
