@@ -11,7 +11,7 @@ end
 % convert to VAR(1)
 A = zeros(T(1, 2)* (spec.lags) ); % Define the A matrix
 for i = 1:spec.lags
-      A(1:T(1,2), T(1,2)*(i-1)+1 : T(1,2)*i ) = get_coefficient(Estimation.Theta, T, i, spec);
+      A(1:T(1,2), T(1,2)*(i-1)+1 : T(1,2)*i ) = GetCoefficient(Estimation.Theta, T, i);
 end
 for m=1:spec.lags-1
     A(m*T(1,2)+1 : m*T(1,2)+T(1,2), T(1,2)*m-T(1,2)+1 : T(1,2) * m) = eye(T(1,2));

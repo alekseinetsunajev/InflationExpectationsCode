@@ -55,7 +55,7 @@ fprintf(fid,'\n');
     
     W = eye(T(1,2),T(1,2));
     for i =1:spec.lags
-        W = W - get_coefficient( Estimation.Theta, T, i, spec);
+        W = W - GetCoefficient( Estimation.Theta, T, i);
     end
     A = (W^-1 * Estimation.B);
     
@@ -89,7 +89,7 @@ fprintf(fid,'\n');
         fprintf(fid,'\n');
         fprintf(fid,'Estimated covariance matrix ');
         fprintf(fid,'%d \n', l);
-        B = get_sigma(Estimation.Sigma, T, l);
+        B = GetSigmaForRegime(Estimation.Sigma, T, l);
         for i = 1:T(1,2) 
             fprintf(fid, '%10.6f', B(i,:) );
             fprintf(fid,'\n');         
@@ -124,8 +124,8 @@ fprintf(fid,'\n');
     for i=1:spec.lags
        fprintf(fid,'Estimated coefficient matrix, lag ');
        fprintf(fid,'%d \n', i);
-       C =  get_coefficient(Estimation.Theta, T, i, spec);
-       D =  get_coefficient(Estimation.StErr(numel(Estimation.StErr)-numel(Estimation.Theta) -spec.s*(spec.s-1) + 1 : numel(Estimation.StErr)-spec.s*(spec.s-1)), T, i, spec);
+       C =  GetCoefficient(Estimation.Theta, T, i);
+       D =  GetCoefficient(Estimation.StErr(numel(Estimation.StErr)-numel(Estimation.Theta) -spec.s*(spec.s-1) + 1 : numel(Estimation.StErr)-spec.s*(spec.s-1)), T, i);
        for j = 1:T(1,2) 
             fprintf(fid, '%10.6f', C(j,:) );
             fprintf(fid,'\n');         

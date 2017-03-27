@@ -64,14 +64,14 @@ fprintf(1,'Estimating model with state invariant B... \n');
      EstimationUR.P(:, 1 + spec.s*(iteration - 1) : spec.s*iteration ),  EstimationUR.IterationLik(iteration, 1:2), EstimationUR.B(:,1 + T(1,2)*(iteration - 1) : T(1,2)*iteration), ...
      EstimationUR.Lambda(:, 1 + T(1,2)*(iteration - 1) : T(1,2)*iteration), EstimationUR.Eta( : , 1+ spec.s*(iteration -1) : spec.s*iteration ), ...
      EstimationUR.Ksi( : , 1+ spec.s*(iteration -1) : spec.s*iteration )] = ...
-            estimate(A1, A2, T, y, Z, spec, tolValue, randNumbers(:,1+ T(1,2)*(iteration -1) :T(1,2)*iteration), LM(iteration) );
+            estimate((A1)^-1 * A2, T, y, Z, spec, tolValue, randNumbers(:,1+ T(1,2)*(iteration -1) :T(1,2)*iteration), LM(iteration) );
 fprintf(1,'Calculating standard errors... \n');
 EstimationUR.logL = EstimationUR.IterationLik(1,1);
-[EstimationUR.StErr, EstimationUR.StErr_all, EstimationUR.Wald] = Param_Stderr(T, EstimationUR, spec, y, Z);
+[EstimationUR.StErr, EstimationUR.StErr_all] = CalculateStrdErrors(T, EstimationUR, spec, y, Z);
 EstimationUR.B_stdErr = results(EstimationUR, spec, T, reply); 
 
-EstimationUR.FEVD1= FEVD(EstimationUR.Theta, EstimationUR.B,  EstimationUR.Lambda, spec, T, 100, 1);
-EstimationUR.FEVD2 = FEVD(EstimationUR.Theta, EstimationUR.B,  EstimationUR.Lambda, spec, T, 100, 2);
+EstimationUR.FEVD1= FEVD(EstimationUR.Theta, EstimationUR.B,  EstimationUR.Lambda, spec, T, 100, 1, 0);
+EstimationUR.FEVD2 = FEVD(EstimationUR.Theta, EstimationUR.B,  EstimationUR.Lambda, spec, T, 100, 2, 0);
 
 %% Restricted model
 spec.BQrestrict = 1 ;
@@ -81,24 +81,22 @@ fprintf(1,'Estimating restricted model... \n');
      Estimation.P(:, 1 + spec.s*(iteration - 1) : spec.s*iteration ),  Estimation.IterationLik(iteration, 1:2), Estimation.B(:,1 + T(1,2)*(iteration - 1) : T(1,2)*iteration), ...
      Estimation.Lambda(:, 1 + T(1,2)*(iteration - 1) : T(1,2)*iteration), Estimation.Eta( : , 1+ spec.s*(iteration -1) : spec.s*iteration ), ...
      Estimation.Ksi( : , 1+ spec.s*(iteration -1) : spec.s*iteration )] = ...
-            estimate(A1, A2, T, y, Z, spec, tolValue, randNumbers(:,1+ T(1,2)*(iteration -1) :T(1,2)*iteration), LM(iteration) );
+            estimate((A1)^-1 * A2, T, y, Z, spec, tolValue, randNumbers(:,1+ T(1,2)*(iteration -1) :T(1,2)*iteration), LM(iteration) );
 
 fprintf(1,'Calculating standard errors... \n');
 Estimation.logL = Estimation.IterationLik(1,1);
-[Estimation.StErr, Estimation.StErr_all, Estimation.Wald] = Param_Stderr(T, Estimation, spec, y, Z);
+[Estimation.StErr, Estimation.StErr_all] = CalculateStrdErrors(T, Estimation, spec, y, Z);
 Estimation.B_stdErr = results(Estimation, spec, T, reply); 
 
 %% calculate FEVD
- Estimation.FEVD1= FEVD(Estimation.Theta, Estimation.B,  Estimation.Lambda, spec, T, 100, 1);
- Estimation.FEVD2 = FEVD(Estimation.Theta, Estimation.B,  Estimation.Lambda, spec, T, 100, 2);
+ Estimation.FEVD1= FEVD(Estimation.Theta, Estimation.B,  Estimation.Lambda, spec, T, 500, 1, 0);
+ Estimation.FEVD2 = FEVD(Estimation.Theta, Estimation.B,  Estimation.Lambda, spec, T, 100, 2, 0);
 
 %% Produce impulse responces, last input argument is number of replication
 fprintf(1,'Bootstrapping...');
-[~, ~, ~,~, bootstrap_Y_MA] = Bootstrap(spec, Estimation.Theta, Estimation.B, Estimation.B_stdErr, Estimation.KsiT, Estimation.Lambda, T, y, Z, 36, 10);
+Bootstrap(spec, Estimation.Theta, Estimation.B, Estimation.KsiT, Estimation.Lambda, T, y, Z, 36, 10);
 
-% plot data
+% plot some figures
 PlotData();
-
-% historical decomposition
 HistoricalDecomposition(Estimation, T, y, Z, spec);
 CalculateAutocorrelation(T, y, Z, spec, Estimation, 24);

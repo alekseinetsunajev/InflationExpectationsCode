@@ -1,0 +1,115 @@
+%Function produces standard errors, returns - StErrors is the array of
+%standard errors that have been estimated by method specified below in the variable Method,
+%allStandardErrors - array of standard errors where first column presents the
+%finite difference standard errors, second column - the outer product
+%matrix standard errors and third column - White standard errors (see below)
+
+function[stdErrorsOuterProduct, allStandardErrors] = CalculateStrdErrors(T, Estimation, spec, y, Z)
+modelParameters = reshape(Estimation.B, T(1,2)^2,1)';
+for position = 2: spec.s
+        modelParameters(T(1,2)^2 + (position - 2)*T(1,2) + 1 : T(1,2)^2 + (position - 1)*T(1,2) ) = diag(GetSigmaForRegime(Estimation.Lambda, T, position))'; 
+end
+modelParameters = [modelParameters Estimation.Theta'];
+modelParameters = [modelParameters reshape(Estimation.P(1:spec.s-1, :), numel(Estimation.P(1:spec.s-1, :)), 1 )'];
+
+modelParameters = modelParameters';
+numberOfElements = numel(modelParameters);
+numberOfElementsInVAR = numel(Estimation.Theta);
+myDelta=1e-4*abs(modelParameters)+0.00000001;
+
+% First derivative calculation as in Hamilton page 143 and Krolzig 120-121.
+derivatives=zeros(T(1,1)-spec.lags,numel(modelParameters));
+
+% calculate the initial likelihood function for each t.
+for t=1:T(1,1)-spec.lags
+    logLikVec(t,1) = log( ( Estimation.P * Estimation.Ksi(t,:)' )' * Estimation.Eta(t,:)');
+end
+
+for i=1:numel(modelParameters)
+    m=modelParameters;
+    m(i)=modelParameters(i)+myDelta(i);    
+    
+    B = reshape(m(1:T(1,2)^2, 1), T(1,2), T(1,2)) ;
+    % Form matrix Sigma of state-dependent covariance matrices  
+    
+    if spec.s == 2
+        Sigma(1:T(1,2) , :) = B*B' ;
+        Sigma(T(1,2)+1 : T(1,2)*2, :) = B * diag( m(T(1,2)^2 +1 : T(1,2)^2 + T(1,2), 1) ) * B' ;
+    elseif spec.s == 3
+        Sigma(1:T(1,2) , :) = B*B' ;
+        Sigma(T(1,2)+1 : T(1,2)*2, :) = B * diag( m(T(1,2)^2 +1 : T(1,2)^2 + T(1,2), 1) ) * B' ;
+        Sigma(2*T(1,2)+1 : T(1,2)*3, :) = B * diag( m(T(1,2)^2 + T(1,2) + 1 : T(1,2)^2 + 2*T(1,2), 1) ) * B' ;
+    elseif spec.s == 4
+        Sigma(1:T(1,2) , :) = B*B' ;
+        Sigma(T(1,2)+1 : T(1,2)*2, :) = B * diag( m(T(1,2)^2 +1 : T(1,2)^2 + T(1,2), 1) ) * B' ;
+        Sigma(2*T(1,2)+1 : T(1,2)*3, :) = B * diag( m(T(1,2)^2 + T(1,2) + 1 : T(1,2)^2 + 2*T(1,2), 1) ) * B' ;
+        Sigma(3*T(1,2)+1 : T(1,2)*4, :) = B * diag( m(T(1,2)^2 + 2*T(1,2) + 1 : T(1,2)^2 + 3*T(1,2), 1) ) * B' ;
+    end
+    
+	P = reshape(m( numel(m) - numel(Estimation.P(1:spec.s-1, :)) + 1 : numel(m)), spec.s-1 , spec.s);
+	
+    for k=1:spec.s-1
+        for q=1:spec.s
+            if P(k,q)>1
+                P(k,q) = 0.999999;
+            elseif P(k,q)<=0
+                P(k,q) = 0.0000001;
+            end
+        end    
+     end
+    
+    lastRowOfP = ones(1, spec.s);
+	for k=1:spec.s-1
+        lastRowOfP = lastRowOfP - P(k,:);
+    end
+	P(spec.s, :) = lastRowOfP;
+
+    u = GetResiduals(T, y, Z, spec.lags, m(numberOfElements - numberOfElementsInVAR - numel(Estimation.P(1:spec.s-1, :)) + 1 : numberOfElements - numel(Estimation.P(1:spec.s-1, :))) );
+    regimeProbs = Estimation.Ksi;
+
+    % update conditional density function Eta for the changes in parameter
+    % values
+    for j = 1: T(1,1)-spec.lags
+        for position=1:spec.s
+            likelihoodForEachTimePeriodUpdated(j,position) = (2*pi)^(-T(1,2)/2)*det(GetSigmaForRegime(Sigma, T, position) )^-0.5 * exp(-0.5*u(j,:)...
+                *GetSigmaForRegime(Sigma, T, position)^-1*u(j,:)' );
+        end
+    end    
+
+    % update state probabilities for the changes in parameter values
+    for q=2:T(1,1)-spec.lags + 1
+        regimeProbs(q,1:spec.s) = ( likelihoodForEachTimePeriodUpdated(q-1,:)' .* (P*regimeProbs(q-1,1:spec.s)') /...
+            (spec.const'*(likelihoodForEachTimePeriodUpdated(q-1,:)'.*(P*regimeProbs(q-1,1:spec.s)'))) )'; 
+    end
+    
+    % calculate the approximated derivative for each t and each parameter
+    for t=1:T(1,1)-spec.lags
+        logLikVecUpdated(t,i) = log( (P * regimeProbs(t,:)' )' *  likelihoodForEachTimePeriodUpdated(t,:)');
+        derivatives(t,i)=(logLikVecUpdated(t,i)-logLikVec(t,1))/(myDelta(i));
+    end
+end
+
+% form the outer product matrix as in Hamilton  eq 5.8.4
+sumOverT = zeros(numel(modelParameters));
+for idx = 1:T(1,1) - spec.lags
+    outerProductAtT=derivatives(idx,:)' * derivatives(idx,:);
+    sumOverT = sumOverT+outerProductAtT;
+end
+outerProduct = sumOverT/T(1,1);
+allStandardErrors(:, 2) = sqrt(diag(inv(outerProduct*T(1,1))));
+
+%Produce results
+% Using outer product Matrix, as eq 5.8.4 and below in Hamilton p 143
+allStandardErrors(:, 2) = sqrt(diag(inv(outerProduct*T(1,1))));
+%Using White's Covariance Matrix, as eq 5.8.7 in Hamilton p 145
+allStandardErrors(:, 3) = ones(numel(modelParameters),1); %sqrt(diag(1/T(1,1)*((H*(OP_Matrix)^-1*H)^-1)));
+
+method = 2;         % outer product matrix is the default method
+switch method
+    case 1  
+        stdErrorsOuterProduct = allStandardErrors(:, 1);
+    case 2  
+        stdErrorsOuterProduct = allStandardErrors(:, 2);
+    case 3  
+        stdErrorsOuterProduct = allStandardErrors(:, 3);
+end

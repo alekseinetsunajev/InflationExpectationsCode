@@ -4,7 +4,7 @@ function [responsesShortRun, responsesLongRun] = CalculateImpulseResponses(spec,
 A = zeros(T(1, 2)* (spec.lags) ); % Define the A matrix
 
 for i = 1:spec.lags
-      A(1:T(1,2), T(1,2)*(i-1)+1 : T(1,2)*i ) = get_coefficient(Theta, T, i, spec);
+      A(1:T(1,2), T(1,2)*(i-1)+1 : T(1,2)*i ) = GetCoefficient(Theta, T, i);
 end
 
 for m=1:spec.lags-1
